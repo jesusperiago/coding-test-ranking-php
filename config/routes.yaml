@@ -1,0 +1,9 @@
+calculate_score:
+    path: /calculate
+    controller: App\Infrastructure\Api\CalculateScoreController
+listing:
+    path: /listing
+    controller: App\Infrastructure\Api\PublicListingController
+quality:
+    path: /quality
+    controller: App\Infrastructure\Api\QualityListingController
