@@ -126,6 +126,56 @@ final class CalculateScoreController
     }
 
     /**
+     * Remove all accents to compare strings on lowercase
+     *
+     * @param string $str
+     * @return string String lowercase without accent
+     */
+    private function remove_accents($str){
+		
+		//Remplace A y a
+		$str = str_replace(
+		array('Á', 'À', 'Â', 'Ä', 'á', 'à', 'ä', 'â', 'ª'),
+		array('A', 'A', 'A', 'A', 'a', 'a', 'a', 'a', 'a'),
+		$str
+		);
+
+		//Remplace E y e
+		$str = str_replace(
+		array('É', 'È', 'Ê', 'Ë', 'é', 'è', 'ë', 'ê'),
+		array('E', 'E', 'E', 'E', 'e', 'e', 'e', 'e'),
+		$str );
+
+		//Remplace I y i
+		$str = str_replace(
+		array('Í', 'Ì', 'Ï', 'Î', 'í', 'ì', 'ï', 'î'),
+		array('I', 'I', 'I', 'I', 'i', 'i', 'i', 'i'),
+		$str );
+
+		//Remplace O y o
+		$str = str_replace(
+		array('Ó', 'Ò', 'Ö', 'Ô', 'ó', 'ò', 'ö', 'ô'),
+		array('O', 'O', 'O', 'O', 'o', 'o', 'o', 'o'),
+		$str );
+
+		//Remplace U y u
+		$str = str_replace(
+		array('Ú', 'Ù', 'Û', 'Ü', 'ú', 'ù', 'ü', 'û'),
+		array('U', 'U', 'U', 'U', 'u', 'u', 'u', 'u'),
+		$str );
+
+		//Remplace N, n, C y c
+		$str = str_replace(
+		array('Ñ', 'ñ', 'Ç', 'ç'),
+		array('N', 'n', 'C', 'c'),
+		$str
+		);
+		
+		return strtolower($str);
+	}
+
+
+    /**
      * Calculates the score based on the ad's description and typology
      *
      * @param [Ad] $ad
@@ -145,7 +195,7 @@ final class CalculateScoreController
             $wordCount = str_word_count($description);
 
             if ($typology === 'FLAT') {
-                if ($wordCount >= 20 && $wordCount < 50) {
+                if ($wordCount >= 20 && $wordCount <= 49) {
                     $score += 10;
                 } elseif ($wordCount >= 50) {
                     $score += 30;
@@ -173,9 +223,10 @@ final class CalculateScoreController
         $wordBonus = 5;
 
         foreach ($specificWords as $word) {
-            if (stripos($ad->getDescription(), $word) !== false) {
-                $score += $wordBonus;
-            }
+            $word = $this->remove_accents($word);
+            $description = $this->remove_accents($ad->getDescription());
+            $times = substr_count($description,$word);
+            $score += ($times * $wordBonus);
         }
 
         return $score;
