@@ -97,6 +97,7 @@ final class CalculateScoreController
         $score += $this->calculateScoreForDescription($ad);
         $score += $this->calculateScoreForSpecificWords($ad);
         $score += $this->calculateScoreForCompleteness($ad);
+
         $score = $score >= 100 ? 100 : $score;
         
         return max(0, $score);
@@ -126,45 +127,39 @@ final class CalculateScoreController
     }
 
     /**
-     * Remove all accents to compare strings on lowercase
+     * Remove all accent marks on the string
      *
      * @param string $str
      * @return string String lowercase without accent
      */
-    private function remove_accents($str){
-		
-		//Remplace A y a
+    private function remove_accents_and_lower($str){
+
 		$str = str_replace(
 		array('Á', 'À', 'Â', 'Ä', 'á', 'à', 'ä', 'â', 'ª'),
 		array('A', 'A', 'A', 'A', 'a', 'a', 'a', 'a', 'a'),
 		$str
 		);
 
-		//Remplace E y e
 		$str = str_replace(
 		array('É', 'È', 'Ê', 'Ë', 'é', 'è', 'ë', 'ê'),
 		array('E', 'E', 'E', 'E', 'e', 'e', 'e', 'e'),
 		$str );
 
-		//Remplace I y i
 		$str = str_replace(
 		array('Í', 'Ì', 'Ï', 'Î', 'í', 'ì', 'ï', 'î'),
 		array('I', 'I', 'I', 'I', 'i', 'i', 'i', 'i'),
 		$str );
 
-		//Remplace O y o
 		$str = str_replace(
 		array('Ó', 'Ò', 'Ö', 'Ô', 'ó', 'ò', 'ö', 'ô'),
 		array('O', 'O', 'O', 'O', 'o', 'o', 'o', 'o'),
 		$str );
 
-		//Remplace U y u
 		$str = str_replace(
 		array('Ú', 'Ù', 'Û', 'Ü', 'ú', 'ù', 'ü', 'û'),
 		array('U', 'U', 'U', 'U', 'u', 'u', 'u', 'u'),
 		$str );
 
-		//Remplace N, n, C y c
 		$str = str_replace(
 		array('Ñ', 'ñ', 'Ç', 'ç'),
 		array('N', 'n', 'C', 'c'),
@@ -179,7 +174,7 @@ final class CalculateScoreController
      * Calculates the score based on the ad's description and typology
      *
      * @param [Ad] $ad
-     * @return integer
+     * @return integer Score for description length
      */
     private function calculateScoreForDescription($ad): int
     {
@@ -192,7 +187,7 @@ final class CalculateScoreController
         if (!empty($description)) {
             $descriptionBonus = 5;
 
-            $wordCount = str_word_count($description);
+            $wordCount = str_word_count($this->remove_accents_and_lower($description));
 
             if ($typology === 'FLAT') {
                 if ($wordCount >= 20 && $wordCount <= 49) {
@@ -221,10 +216,9 @@ final class CalculateScoreController
         $score = 0;
         $specificWords = ['Luminoso', 'Nuevo', 'Céntrico', 'Reformado', 'Ático'];
         $wordBonus = 5;
-
+        $description = $this->remove_accents_and_lower($ad->getDescription());
         foreach ($specificWords as $word) {
-            $word = $this->remove_accents($word);
-            $description = $this->remove_accents($ad->getDescription());
+            $word = $this->remove_accents_and_lower($word);
             $times = substr_count($description,$word);
             $score += ($times * $wordBonus);
         }
