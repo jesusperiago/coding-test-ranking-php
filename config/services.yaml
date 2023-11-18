@@ -33,6 +33,7 @@ services:
     App\Infrastructure\Api\CalculateScoreController:
         arguments:
             $persistence: '@App\Infrastructure\Persistence\InFileSystemPersistence'
+            $helper: '@App\Infrastructure\Api\Helpers'
         tags: ['controller.service_arguments']
     
     # Configuration for PublicListingController with dependency injection for CalculateScoreController.

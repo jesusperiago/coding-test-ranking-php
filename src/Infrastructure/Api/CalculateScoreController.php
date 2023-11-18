@@ -6,22 +6,23 @@ namespace App\Infrastructure\Api;
 
 use Symfony\Component\HttpFoundation\JsonResponse;
 use App\Infrastructure\Persistence\InFileSystemPersistence;
-use DateTimeImmutable;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
-
+use DateTimeImmutable;
 
 final class CalculateScoreController
 {
     private InFileSystemPersistence $persistence;
+    private Helpers $helpers;
 
     /**
      * Constructor accepting an InFileSystemPersistence object
      *
      * @param InFileSystemPersistence $persistence
      */
-    public function __construct(InFileSystemPersistence $persistence)
+    public function __construct(InFileSystemPersistence $persistence, Helpers $helper)
     {
         $this->persistence = $persistence;
+        $this->helpers = $helper;
     }
 
     /**
@@ -45,6 +46,7 @@ final class CalculateScoreController
         $cache = new FilesystemAdapter();
         // TODO: Check cache should update or not
         $cacheItem = $cache->getItem('ads');
+        $cache->deleteItem('ads');
         $data = $this->getAdsAndScore();
         $cacheItem->set($data);
         $cache->save($cacheItem);
@@ -60,11 +62,12 @@ final class CalculateScoreController
     {
         $ads = $this->persistence->getAds();
         $scores = [];
+
         foreach ($ads as $ad) {
             $score = $this->calculateScore($ad);
             $ad->setScore($score);
-            $date =  $score < 40 ? new DateTimeImmutable() : null;
-            if($date != null)
+            $date =  $score < 40 ? $this->helpers->calculateTime() : null;
+            if( $date instanceof DateTimeImmutable )
             {
                 $ad->setIrrelevantSince($date);
                 $date = $date->format('Y-m-d');
@@ -86,8 +89,8 @@ final class CalculateScoreController
     /**
      * Calculates the score for an ad based on various criteria
      *
-     * @param [Ad] $ad
-     * @return integer
+     * @param Ad $ad Object of type Ad
+     * @return integer Final score for Ad min 0 and max 100
      */
     public function calculateScore($ad): int
     {
@@ -98,7 +101,7 @@ final class CalculateScoreController
         $score += $this->calculateScoreForSpecificWords($ad);
         $score += $this->calculateScoreForCompleteness($ad);
 
-        $score = $score >= 100 ? 100 : $score;
+        $score = $score > 100 ? 100 : $score;
         
         return max(0, $score);
     }
@@ -106,8 +109,8 @@ final class CalculateScoreController
     /**
      * Calculates the score based on the presence and quality of photos
      *
-     * @param [Ad] $ad
-     * @return integer
+     * @param Ad $ad Object of type Ad
+     * @return integer Score for pictures quality and quantity
      */
     private function calculateScoreForPhotos($ad): int
     {
@@ -126,54 +129,12 @@ final class CalculateScoreController
         return $score;
     }
 
-    /**
-     * Remove all accent marks on the string
-     *
-     * @param string $str
-     * @return string String lowercase without accent
-     */
-    private function remove_accents_and_lower($str){
-
-		$str = str_replace(
-		array('Á', 'À', 'Â', 'Ä', 'á', 'à', 'ä', 'â', 'ª'),
-		array('A', 'A', 'A', 'A', 'a', 'a', 'a', 'a', 'a'),
-		$str
-		);
-
-		$str = str_replace(
-		array('É', 'È', 'Ê', 'Ë', 'é', 'è', 'ë', 'ê'),
-		array('E', 'E', 'E', 'E', 'e', 'e', 'e', 'e'),
-		$str );
-
-		$str = str_replace(
-		array('Í', 'Ì', 'Ï', 'Î', 'í', 'ì', 'ï', 'î'),
-		array('I', 'I', 'I', 'I', 'i', 'i', 'i', 'i'),
-		$str );
-
-		$str = str_replace(
-		array('Ó', 'Ò', 'Ö', 'Ô', 'ó', 'ò', 'ö', 'ô'),
-		array('O', 'O', 'O', 'O', 'o', 'o', 'o', 'o'),
-		$str );
-
-		$str = str_replace(
-		array('Ú', 'Ù', 'Û', 'Ü', 'ú', 'ù', 'ü', 'û'),
-		array('U', 'U', 'U', 'U', 'u', 'u', 'u', 'u'),
-		$str );
-
-		$str = str_replace(
-		array('Ñ', 'ñ', 'Ç', 'ç'),
-		array('N', 'n', 'C', 'c'),
-		$str
-		);
-		
-		return strtolower($str);
-	}
 
 
     /**
      * Calculates the score based on the ad's description and typology
      *
-     * @param [Ad] $ad
+     * @param Ad $ad Object of type Ad
      * @return integer Score for description length
      */
     private function calculateScoreForDescription($ad): int
@@ -187,7 +148,7 @@ final class CalculateScoreController
         if (!empty($description)) {
             $descriptionBonus = 5;
 
-            $wordCount = str_word_count($this->remove_accents_and_lower($description));
+            $wordCount = str_word_count($this->helpers->remove_accents_and_lower($description));
 
             if ($typology === 'FLAT') {
                 if ($wordCount >= 20 && $wordCount <= 49) {
@@ -208,29 +169,28 @@ final class CalculateScoreController
     /**
      * Calculates the score based on the ad's description and typology
      *
-     * @param [Ad] $ad
-     * @return integer
+     * @param Ad $ad Object of type Ad
+     * @return integer Return score for specificwords
      */
     private function calculateScoreForSpecificWords($ad): int
     {
         $score = 0;
         $specificWords = ['Luminoso', 'Nuevo', 'Céntrico', 'Reformado', 'Ático'];
         $wordBonus = 5;
-        $description = $this->remove_accents_and_lower($ad->getDescription());
+        $description = $this->helpers->remove_accents_and_lower($ad->getDescription() );
+        $specificWords = $this->helpers->remove_accents_and_lower($specificWords );
         foreach ($specificWords as $word) {
-            $word = $this->remove_accents_and_lower($word);
-            $times = substr_count($description,$word);
-            $score += ($times * $wordBonus);
+            $times = $this->helpers->calculateWordsInString($description, $word );
+            $score += ( $times * $wordBonus );
         }
-
         return $score;
     }
 
     /**
      * Calculates the score based on the completeness of ad information
      *
-     * @param [Ad] $ad
-     * @return integer
+     * @param Ad $ad Object of type Ad
+     * @return integer Returns score if the ad is complete
      */
     private function calculateScoreForCompleteness($ad): int
     {
